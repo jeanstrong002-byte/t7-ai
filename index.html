@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>T7 AI</title>
+<style>
+body{background:#070b09;color:white;font-family:Arial;padding:18px}
+h1{color:#39e879;text-align:center;font-size:32px}
+.card{background:#101914;border:1px solid #245b39;border-radius:14px;padding:16px;margin:14px 0}
+button{background:#19b957;color:#041108;border:0;padding:15px;border-radius:10px;width:100%;font-weight:bold}
+.status{color:#ffd166;font-weight:bold}
+.market{padding:10px;border-bottom:1px solid #245b39}
+small{color:#a9b9ae}
+</style>
+</head>
+<body>
+<h1>T7 AI</h1>
+<p style="text-align:center">Inteligência de mercado</p>
+
+<div class="card">
+<h3>Conexão Deriv</h3>
+<p id="status" class="status">Desconectado</p>
+<button onclick="connect()">CONECTAR À DERIV</button>
+</div>
+
+<div class="card">
+<h3>Configuração da IA</h3>
+<p>Estratégia: Completa</p>
+<p>Gráfico: M5</p>
+<p>Confiança mínima: 80%</p>
+<p>Atualização: 1% de movimento</p>
+<p>Sinais: CALL e PUT</p>
+<p>Operações simultâneas: 1</p>
+</div>
+
+<div class="card">
+<h3>Mercados encontrados</h3>
+<div id="markets">Aguardando conexão...</div>
+</div>
+
+<div class="card">
+<h3>Segurança</h3>
+<small>Somente consulta de dados públicos. Nenhuma ordem será enviada.</small>
+</div>
+
+<script>
+let socket;
+
+function connect(){
+ const status=document.getElementById("status");
+ status.textContent="Conectando...";
+ document.getElementById("markets").textContent="Aguardando resposta da Deriv...";
+
+ socket=new WebSocket("wss://api.derivws.com/trading/v1/options/ws/public");
+
+ socket.onopen=()=>{
+   status.textContent="CONECTADO";
+   status.style.color="#39e879";
+   socket.send(JSON.stringify({active_symbols:"brief",req_id:1}));
+ };
+
+ socket.onmessage=(event)=>{
+   const data=JSON.parse(event.data);
+   if(data.error){
+     status.textContent="Erro: "+data.error.message;
+     return;
+   }
+   if(data.msg_type==="active_symbols"){
+     const assets=data.active_symbols||[];
+     const wanted=["BTC","ETH","EUR","GBP","JPY","XAU"];
+     const found=assets.filter(a=>{
+       const info=JSON.stringify(a).toUpperCase();
+       return wanted.some(x=>info.includes(x));
+     });
+     document.getElementById("markets").innerHTML="";
+     if(found.length===0){
+       document.getElementById("markets").textContent="Nenhum dos seis ativos foi localizado.";
+       return;
+     }
+     found.forEach(a=>{
+       const div=document.createElement("div");
+       div.className="market";
+       div.textContent=(a.display_name||a.underlying_symbol_name||a.symbol||"Mercado")+" | "+(a.symbol||a.underlying_symbol||"");
+       document.getElementById("markets").appendChild(div);
+     });
+   }
+ };
+
+ socket.onerror=()=>{status.textContent="Falha na conexão";};
+ socket.onclose=()=>{status.textContent="Desconectado";};
+}
+</script>
+</body>
+</html>
